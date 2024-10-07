@@ -53,6 +53,20 @@ class AutoTyperApp:
         self.capture_button = ttk.Button(root, text="Capture Text", command=self.capture_and_type)
         self.capture_button.grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky='ew')
 
+        # Auto feature
+        self.auto_frame = ttk.Frame(root)
+        self.auto_frame.grid(row=5, column=0, columnspan=2, padx=5, pady=5, sticky='ew')
+        
+        self.auto_label = ttk.Label(self.auto_frame, text="Auto:")
+        self.auto_label.pack(side='left')
+        
+        self.auto_state = tk.StringVar(value="Off")
+        self.auto_button = ttk.Button(self.auto_frame, textvariable=self.auto_state, command=self.toggle_auto)
+        self.auto_button.pack(side='left', padx=5)
+
+        self.auto_active = False
+        self.auto_thread = None
+
     def setup_hotkey(self):
         keyboard.add_hotkey('ctrl+shift+s', self.toggle_typing)
 
@@ -93,10 +107,48 @@ class AutoTyperApp:
 
     def stop_typing(self):
         self.is_typing = False
+        if not self.auto_active:
+            self.update_buttons()
 
     def update_buttons(self):
-        self.start_button.config(state='normal')
-        self.stop_button.config(state='disabled')
+        if self.is_typing:
+            self.start_button.config(state='disabled')
+            self.stop_button.config(state='normal')
+        else:
+            self.start_button.config(state='normal')
+            self.stop_button.config(state='disabled')
+        
+        self.auto_button.config(state='normal')
+        self.capture_button.config(state='normal' if not self.auto_active else 'disabled')
+
+    def toggle_auto(self):
+        if self.auto_active:
+            self.stop_auto()
+        else:
+            self.start_auto()
+        self.update_buttons()  # Update button states after toggling
+
+    def start_auto(self):
+        self.auto_active = True
+        self.auto_state.set("On")
+        self.auto_thread = threading.Thread(target=self.auto_loop)
+        self.auto_thread.start()
+
+    def stop_auto(self):
+        self.auto_active = False
+        self.auto_state.set("Off")
+        # Remove the blocking join() call
+        # if self.auto_thread:
+        #     self.auto_thread.join()
+
+    def auto_loop(self):
+        while self.auto_active:
+            self.capture_and_type()
+            while self.is_typing and self.auto_active:
+                time.sleep(0.1)
+            if not self.auto_active:
+                break
+            time.sleep(1)  # Wait a second before capturing again
 
     def capture_and_type(self):
         coords = self.coords_entry.get().split(',')
